@@ -2,36 +2,44 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Diseñador de CCTV Pro v21.4</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Diseñador de CCTV Pro v21.5</title>
     <!-- Leaflet & Geocoder CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
     
     <style>
-        * { box-sizing: border-box; }
+        * { 
+            box-sizing: border-box; 
+            touch-action: none !important; /* Anula gestos nativos del navegador en todos los elementos */
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
         
-        /* 🛑 BLOQUEO ABSOLUTO DE RECARGA EN TODO EL NAVEGADOR */
+        /* 🛑 FIX DEFINITIVO: position: fixed quita el root scroll que activa el pull-to-refresh en Android */
         html, body { 
-            margin: 0; 
-            padding: 0; 
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden; 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden !important; 
             overscroll-behavior: none !important;
             overscroll-behavior-y: none !important;
-            touch-action: none;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             display: flex; 
             flex-direction: column; 
             background: #121218; 
             color: white; 
-            user-select: none; 
-            -webkit-user-select: none;
         }
         
         /* Navegación por Pestañas */
-        #tab-bar { display: flex; background: #0f0f14; border-bottom: 2px solid #2a2a36; flex-shrink: 0; }
+        #tab-bar { display: flex; background: #0f0f14; border-bottom: 2px solid #2a2a36; flex-shrink: 0; z-index: 1001; }
         .tab-btn { padding: 12px 20px; background: transparent; border: none; color: #888; font-weight: bold; font-size: 14px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; border-bottom: 3px solid transparent; white-space: nowrap; }
         .tab-btn.active { color: #007bff; border-bottom-color: #007bff; background: #1a1a24; }
 
@@ -58,11 +66,11 @@
         /* Contenedores de Vistas */
         .view-container { flex: 1; width: 100%; height: 100%; position: relative; display: none; overflow: hidden; }
         .view-container.active { display: block; }
-        #map { width: 100%; height: 100%; background: #000; touch-action: none; }
+        #map { width: 100%; height: 100%; background: #000; }
 
         /* Canvas de Croquis Interior */
-        #sketch-wrapper { width: 100%; height: 100%; position: relative; background: #ffffff; overflow: hidden; touch-action: none; }
-        #sketch-canvas { position: absolute; top: 0; left: 0; z-index: 1; outline: none; cursor: crosshair; touch-action: none; }
+        #sketch-wrapper { width: 100%; height: 100%; position: relative; background: #ffffff; overflow: hidden; }
+        #sketch-canvas { position: absolute; top: 0; left: 0; z-index: 1; outline: none; cursor: crosshair; }
 
         /* Estilos Leaflet y UI */
         .drag-handle { background: #ffc107; border: 2px solid #000; border-radius: 50%; cursor: pointer; }
@@ -136,12 +144,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <script>
-        // 🛑 PREVENCIÓN DE RECARGA (PULL-TO-REFRESH) GLOBAL EN ANDROID
-        window.addEventListener('touchmove', function(e) {
+        // 🛑 ANULACIÓN RIGUROSA DE RECARGA A NIVELES TOUCHSTART Y TOUCHMOVE
+        function blockRefresh(e) {
             if (e.cancelable) {
                 e.preventDefault();
             }
-        }, { passive: false });
+        }
+        document.addEventListener('touchstart', blockRefresh, { passive: false });
+        document.addEventListener('touchmove', blockRefresh, { passive: false });
+        window.addEventListener('scroll', () => window.scrollTo(0, 0));
 
         let activeTab = 'satellite';
         let isEraserActive = false;
@@ -545,7 +556,6 @@
         function getMidpoint(t1, t2) { return { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 }; }
 
         sketchCanvas.addEventListener('touchstart', e => {
-            if (e.cancelable) e.preventDefault();
             const rect = sketchCanvas.getBoundingClientRect();
             tpCache = Array.from(e.touches);
 
@@ -561,7 +571,6 @@
         }, { passive: false });
 
         sketchCanvas.addEventListener('touchmove', e => {
-            if (e.cancelable) e.preventDefault();
             const rect = sketchCanvas.getBoundingClientRect();
             tpCache = Array.from(e.touches);
 
@@ -593,7 +602,6 @@
         }, { passive: false });
 
         sketchCanvas.addEventListener('touchend', e => {
-            if (e.cancelable) e.preventDefault();
             const rect = sketchCanvas.getBoundingClientRect();
             if (e.changedTouches.length > 0) {
                 handleEnd(e.changedTouches[0].clientX - rect.left, e.changedTouches[0].clientY - rect.top);
@@ -633,10 +641,11 @@
                     if (isSat) map.invalidateSize(true); else resizeSketchCanvas();
 
                     if (format === 'jpg') {
-                        const link = document.createElement('a');
-                        link.download = `${fileName}.jpg`;
-                        link.href = canvas.toDataURL('image/jpeg', 0.9);
-                        link.click();
+                        const link = document.getElementById('a');
+                        const linkEl = document.createElement('a');
+                        linkEl.download = `${fileName}.jpg`;
+                        linkEl.href = canvas.toDataURL('image/jpeg', 0.9);
+                        linkEl.click();
                     } else if (format === 'pdf') {
                         const { jsPDF } = window.jspdf;
                         const imgData = canvas.toDataURL('image/jpeg', 0.9);
