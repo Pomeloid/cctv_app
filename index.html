@@ -16,7 +16,7 @@
             user-select: none;
         }
         
-        /* Contención estricta del Root para evitar recargas nativas */
+        /* Bloqueo estricto a nivel navegador para anular el Pull-to-Refresh */
         html, body { 
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -30,6 +30,7 @@
             flex-direction: column; 
             background: #121218; 
             color: white; 
+            touch-action: none; /* Bloqueo de gestos predeterminados del sistema */
         }
         
         /* Bar de Pestañas Superior */
@@ -39,8 +40,6 @@
             border-bottom: 1px solid #2a2a36; 
             flex-shrink: 0; 
             z-index: 1001; 
-            overflow-x: auto;
-            touch-action: pan-x;
         }
         .tab-btn { 
             flex: 1;
@@ -61,49 +60,51 @@
         }
         .tab-btn.active { color: #007bff; border-bottom-color: #007bff; background: #1a1a24; }
 
-        /* Panel de Controles Adaptativo (Permite Scroll Horizontal sin romper nada) */
+        /* Panel de Controles Auto-Adaptable (Flex Wrap) */
         #controls { 
-            padding: 8px; 
+            padding: 6px 8px; 
             background: #1a1a24; 
             display: flex; 
+            flex-wrap: wrap; /* ACOMODA LOS BOTONES EN FILAS SEGÚN EL TAMAÑO */
             gap: 6px; 
             align-items: center; 
+            justify-content: flex-start;
             z-index: 1000; 
             box-shadow: 0 4px 12px rgba(0,0,0,0.4); 
             flex-shrink: 0; 
-            overflow-x: auto; /* PERMITE SCROLL DE BOTONES EN CELULARES */
-            white-space: nowrap;
-            touch-action: pan-x; /* Permite deslizar los botones con el dedo */
-            -webkit-overflow-scrolling: touch;
+            touch-action: manipulation; /* Permite toques fluidos sin scroll nativo */
         }
-        
-        /* Scrollbar discreta para los botones en móvil */
-        #controls::-webkit-scrollbar { height: 3px; }
-        #controls::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
 
-        .control-group { display: flex; align-items: center; gap: 6px; }
+        .control-group { 
+            display: flex; 
+            align-items: center; 
+            gap: 4px; 
+            flex-wrap: wrap; 
+        }
 
         label { font-size: 10px; font-weight: bold; display: flex; flex-direction: column; gap: 2px; color: #ccc; }
-        select, input[type="checkbox"] { border-radius: 4px; border: 1px solid #444; background: #2a2a36; color: white; font-size: 12px; }
-        select { padding: 4px 6px; }
+        select, input[type="checkbox"] { border-radius: 4px; border: 1px solid #444; background: #2a2a36; color: white; font-size: 11px; }
+        select { padding: 4px; }
         
-        .chk-label { flex-direction: row !important; align-items: center; gap: 4px; cursor: pointer; font-size: 11px; margin-left: 2px; }
+        .chk-label { flex-direction: row !important; align-items: center; gap: 4px; cursor: pointer; font-size: 11px; }
         .chk-label input { width: 14px; height: 14px; }
 
         button.action-btn { 
-            padding: 6px 10px; 
+            padding: 6px 8px; 
             background: #007bff; 
             color: white; 
             border: none; 
             border-radius: 4px; 
             font-weight: bold; 
             cursor: pointer; 
-            font-size: 12px; 
+            font-size: 11px; 
             display: inline-flex; 
             align-items: center; 
             gap: 4px; 
             white-space: nowrap; 
-            flex-shrink: 0;
+            flex-grow: 1; /* HACE QUE LOS BOTONES SE ESCALEN Y RELLENEN ESPACIOS */
+            justify-content: center;
+            max-height: 28px;
         }
         
         .btn-adding { background: #ffc107 !important; color: #000 !important; animation: pulse 1.5s infinite; }
@@ -115,7 +116,7 @@
         .btn-export-pdf { background: #dc3545; }
         .btn-tool { background: #323242; color: #e0e0e0; border: 1px solid #444; }
 
-        /* Contenedores de Vistas - Bloqueo táctil exclusivo aquí */
+        /* Contenedores de Vistas */
         .view-container { 
             flex: 1; 
             width: 100%; 
@@ -123,7 +124,7 @@
             position: relative; 
             display: none; 
             overflow: hidden; 
-            touch-action: none !important; /* Bloquea gestos del navegador DENTRO del mapa/canvas */
+            touch-action: none !important; 
         }
         .view-container.active { display: block; }
         #map { width: 100%; height: 100%; background: #000; touch-action: none !important; }
@@ -137,8 +138,6 @@
         .cam-dot-marker { background: #007bff; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 6px rgba(0,0,0,0.8); }
         .cam-dot-domo { background: #9c27b0; }
         .cam-label { background: rgba(18, 18, 24, 0.85) !important; color: #ffffff !important; border: 1px solid #007bff !important; font-weight: bold !important; font-size: 10px !important; padding: 1px 4px !important; border-radius: 3px !important; }
-
-        .divider { width: 1px; height: 20px; background: #444; margin: 0 2px; flex-shrink: 0; }
     </style>
 </head>
 <body>
@@ -149,9 +148,9 @@
         <button class="tab-btn" onclick="switchTab('sketch')">📐 Croquis</button>
     </div>
 
-    <!-- Panel Superior con Scroll Horizontal Integrado -->
+    <!-- Panel Superior Adaptable -->
     <div id="controls">
-        <div class="control-group">
+        <div class="control-group" style="flex-grow: 2;">
             <label>Tipo:
                 <select id="camType">
                     <option value="Bullet">Bullet</option>
@@ -168,23 +167,23 @@
             <button id="addBtn" class="action-btn" onclick="toggleAddCamera()">➕ Añadir Cam</button>
         </div>
 
-        <div id="sketch-tools" style="display: none; align-items: center; gap: 6px;">
-            <div class="divider"></div>
+        <div id="sketch-tools" style="display: none; align-items: center; gap: 4px; flex-wrap: wrap; flex-grow: 2;">
             <button id="btnScale" class="action-btn btn-tool" onclick="toggleSetScale()">📏 Escala</button>
             <button id="btnEraser" class="action-btn btn-tool" onclick="toggleEraser()">🧹 Borrar</button>
             <button id="btnResetView" class="action-btn btn-tool" onclick="resetSketchView()">🔍 Centrar</button>
             <button id="btnClearSketch" class="action-btn btn-tool" onclick="clearSketch()">🗑️ Limpiar</button>
             
-            <label class="chk-label">
+            <label class="chk-label" style="margin-left: 2px;">
                 <input type="checkbox" id="showMeasures" checked onchange="drawSketch()">
                 Medidas
             </label>
             <span id="scaleInfo" style="font-size: 10px; color: #aaa; margin-left: 2px;">Sin escala</span>
         </div>
 
-        <div class="divider"></div>
-        <button class="action-btn btn-export-jpg" onclick="exportPlan('jpg')">🖼️ JPG</button>
-        <button class="action-btn btn-export-pdf" onclick="exportPlan('pdf')">📄 PDF</button>
+        <div class="control-group" style="margin-left: auto;">
+            <button class="action-btn btn-export-jpg" onclick="exportPlan('jpg')">🖼️ JPG</button>
+            <button class="action-btn btn-export-pdf" onclick="exportPlan('pdf')">📄 PDF</button>
+        </div>
     </div>
 
     <!-- Vista Satelital -->
@@ -206,19 +205,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <script>
-        // Prevenir la recarga deslizando hacia abajo SOLO si ocurre fuera de controles manipulables
-        document.addEventListener('touchstart', function(e) {
-            if (e.touches.length === 1 && e.clientY < 50) {
-                // Si el toque arranca muy arriba en la pantalla, cancela el gesto nativo
-                if (e.cancelable) e.preventDefault();
-            }
-        }, { passive: false });
-
-        document.addEventListener('touchmove', function(e) {
-            // Evitar overscroll en el documento general
-            if (!e.target.closest('#controls') && !e.target.closest('#tab-bar')) {
-                if (e.cancelable) e.preventDefault();
-            }
+        // Bloqueo estricto del Pull-To-Refresh y arrastre no deseado en todo el documento
+        document.body.addEventListener('touchmove', function(e) {
+            e.preventDefault();
         }, { passive: false });
 
         let activeTab = 'satellite';
