@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Diseñador de CCTV Pro v21.3</title>
+    <title>Diseñador de CCTV Pro v21.4</title>
     <!-- Leaflet & Geocoder CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
@@ -11,19 +11,23 @@
     <style>
         * { box-sizing: border-box; }
         
-        /* 🛑 FIX: overscroll-behavior-y evita que Android recargue al deslizar hacia abajo */
-        body { 
+        /* 🛑 BLOQUEO ABSOLUTO DE RECARGA EN TODO EL NAVEGADOR */
+        html, body { 
             margin: 0; 
             padding: 0; 
+            width: 100%;
+            height: 100%;
+            overflow: hidden; 
+            overscroll-behavior: none !important;
+            overscroll-behavior-y: none !important;
+            touch-action: none;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             display: flex; 
             flex-direction: column; 
-            height: 100vh; 
-            overflow: hidden; 
             background: #121218; 
             color: white; 
             user-select: none; 
-            overscroll-behavior-y: contain;
+            -webkit-user-select: none;
         }
         
         /* Navegación por Pestañas */
@@ -54,11 +58,11 @@
         /* Contenedores de Vistas */
         .view-container { flex: 1; width: 100%; height: 100%; position: relative; display: none; overflow: hidden; }
         .view-container.active { display: block; }
-        #map { width: 100%; height: 100%; background: #000; }
+        #map { width: 100%; height: 100%; background: #000; touch-action: none; }
 
         /* Canvas de Croquis Interior */
         #sketch-wrapper { width: 100%; height: 100%; position: relative; background: #ffffff; overflow: hidden; touch-action: none; }
-        #sketch-canvas { position: absolute; top: 0; left: 0; z-index: 1; outline: none; cursor: crosshair; }
+        #sketch-canvas { position: absolute; top: 0; left: 0; z-index: 1; outline: none; cursor: crosshair; touch-action: none; }
 
         /* Estilos Leaflet y UI */
         .drag-handle { background: #ffc107; border: 2px solid #000; border-radius: 50%; cursor: pointer; }
@@ -132,6 +136,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <script>
+        // 🛑 PREVENCIÓN DE RECARGA (PULL-TO-REFRESH) GLOBAL EN ANDROID
+        window.addEventListener('touchmove', function(e) {
+            if (e.cancelable) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
         let activeTab = 'satellite';
         let isEraserActive = false;
         let isSettingScale = false;
@@ -179,14 +190,14 @@
         }
 
         // --- MAPA SATELITAL ---
-        const map = L.map('map', { maxZoom: 22, preferCanvas: true, zoomControl: false }).setView([-28.469, -65.779], 18);
+        const map = L.map('map', { maxZoom: 22, preferCanvas: true, zoomControl: false, bounceAtZoomLimits: false }).setView([-28.469, -65.779], 18);
         L.control.zoom({ position: 'topleft' }).addTo(map);
 
         L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
             maxZoom: 22, maxNativeZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: 'Google'
         }).addTo(map);
 
-        // 🚀 MEJORA EN EL BUSCADOR: Usamos el motor de búsquedas Photon (Komoot) mucho más preciso y rápido
+        // Buscador Photon (Komoot)
         L.Control.geocoder({
             geocoder: L.Control.Geocoder.photon(),
             defaultMarkGeocode: false,
@@ -529,11 +540,12 @@
         }, { passive: false });
         sketchCanvas.addEventListener('contextmenu', e => e.preventDefault());
 
-        // --- EVENTOS TOUCH (CON FIX DE PREVENCIÓN DE RECARGA EN ANDROID) ---
+        // --- EVENTOS TOUCH INTERNOS ---
         function getDistance(t1, t2) { return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY); }
         function getMidpoint(t1, t2) { return { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 }; }
 
         sketchCanvas.addEventListener('touchstart', e => {
+            if (e.cancelable) e.preventDefault();
             const rect = sketchCanvas.getBoundingClientRect();
             tpCache = Array.from(e.touches);
 
@@ -549,9 +561,7 @@
         }, { passive: false });
 
         sketchCanvas.addEventListener('touchmove', e => {
-            // 🛑 BLOQUEO DE RECARGA DE PÁGINA NATIVA DE ANDROID
             if (e.cancelable) e.preventDefault();
-
             const rect = sketchCanvas.getBoundingClientRect();
             tpCache = Array.from(e.touches);
 
@@ -583,6 +593,7 @@
         }, { passive: false });
 
         sketchCanvas.addEventListener('touchend', e => {
+            if (e.cancelable) e.preventDefault();
             const rect = sketchCanvas.getBoundingClientRect();
             if (e.changedTouches.length > 0) {
                 handleEnd(e.changedTouches[0].clientX - rect.left, e.changedTouches[0].clientY - rect.top);
