@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Diseñador de CCTV Pro v21.3</title>
+    <!-- Leaflet & Geocoder CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: #121218; color: white; user-select: none; }
+        
+        /* Navegación por Pestañas */
+        #tab-bar { display: flex; background: #0f0f14; border-bottom: 2px solid #2a2a36; flex-shrink: 0; }
+        .tab-btn { padding: 12px 20px; background: transparent; border: none; color: #888; font-weight: bold; font-size: 14px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; border-bottom: 3px solid transparent; white-space: nowrap; }
+        .tab-btn.active { color: #007bff; border-bottom-color: #007bff; background: #1a1a24; }
+
+        /* Panel Superior de Controles */
+        #controls { padding: 10px 14px; background: #1a1a24; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.4); flex-shrink: 0; }
+        label { font-size: 11px; font-weight: bold; display: flex; flex-direction: column; gap: 3px; }
+        select, input[type="checkbox"] { border-radius: 5px; border: 1px solid #444; background: #2a2a36; color: white; font-size: 13px; }
+        select { padding: 6px 8px; }
+        
+        .chk-label { flex-direction: row !important; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: 12px; margin-left: 5px; }
+        .chk-label input { width: 16px; height: 16px; cursor: pointer; }
+
+        button.action-btn { padding: 8px 14px; background: #007bff; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 13px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+        
+        .btn-adding { background: #ffc107 !important; color: #000 !important; animation: pulse 1.5s infinite; }
+        .btn-erasing { background: #dc3545 !important; color: #fff !important; animation: pulse 1.5s infinite; }
+        .btn-scale { background: #17a2b8 !important; color: #fff !important; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+
+        .btn-export-jpg { background: #28a745; }
+        .btn-export-pdf { background: #dc3545; }
+        .btn-tool { background: #007bff; }
+
+        /* Contenedores de Vistas */
+        .view-container { flex: 1; width: 100%; height: 100%; position: relative; display: none; overflow: hidden; }
+        .view-container.active { display: block; }
+        #map { width: 100%; height: 100%; background: #000; }
+
+        /* Canvas de Croquis Interior */
+        #sketch-wrapper { width: 100%; height: 100%; position: relative; background: #ffffff; overflow: hidden; touch-action: none; }
+        #sketch-canvas { position: absolute; top: 0; left: 0; z-index: 1; outline: none; cursor: crosshair; }
+
+        /* Estilos Leaflet y UI */
+        .drag-handle { background: #ffc107; border: 2px solid #000; border-radius: 50%; cursor: pointer; }
+        .cam-dot-marker { background: #007bff; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 6px rgba(0,0,0,0.8); cursor: grab; }
+        .cam-dot-domo { background: #9c27b0; }
+        .cam-label { background: rgba(18, 18, 24, 0.85) !important; color: #ffffff !important; border: 1px solid #007bff !important; font-weight: bold !important; font-size: 10px !important; padding: 1px 4px !important; border-radius: 3px !important; }
+
+        .export-group { display: flex; gap: 5px; }
+    </style>
+</head>
+<body>
+
+    <!-- Bar de Pestañas Principal -->
+    <div id="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('satellite')">🗺️ Satelital (Exterior)</button>
+        <button class="tab-btn" onclick="switchTab('sketch')">📐 Plano / Croquis (Interior)</button>
+    </div>
+
+    <!-- Panel Superior -->
+    <div id="controls">
+        <label>Tipo Cámara:
+            <select id="camType">
+                <option value="Bullet">Bullet (Fija)</option>
+                <option value="Domo">Domo 360</option>
+            </select>
+        </label>
+        <label>Lente:
+            <select id="focal">
+                <option value="103">2.8 mm (103°)</option>
+                <option value="84" selected>3.6 mm (84°)</option>
+                <option value="55">6.0 mm (55°)</option>
+            </select>
+        </label>
+        <button id="addBtn" class="action-btn" onclick="toggleAddCamera()">➕ Agregar Cámara</button>
+
+        <div id="sketch-tools" style="display: none; gap: 8px; align-items: center;">
+            <button id="btnScale" class="action-btn btn-tool" onclick="toggleSetScale()">📏 Definir Escala</button>
+            <button id="btnEraser" class="action-btn btn-tool" onclick="toggleEraser()">🧹 Borrar Pared</button>
+            <button id="btnResetView" class="action-btn btn-tool" onclick="resetSketchView()">🔍 Centrar Vista</button>
+            <button id="btnClearSketch" class="action-btn btn-tool" onclick="clearSketch()">🗑️ Limpiar Todo</button>
+            
+            <label class="chk-label">
+                <input type="checkbox" id="showMeasures" checked onchange="drawSketch()">
+                Mostrar Medidas
+            </label>
+            <span id="scaleInfo" style="font-size: 12px; color: #aaa; margin-left: 5px;">Escala: Sin definir</span>
+        </div>
+
+        <div class="export-group">
+            <button class="action-btn btn-export-jpg" onclick="exportPlan('jpg')">🖼️ JPG</button>
+            <button class="action-btn btn-export-pdf" onclick="exportPlan('pdf')">📄 PDF</button>
+        </div>
+    </div>
+
+    <!-- Vista Satelital -->
+    <div id="view-satellite" class="view-container active">
+        <div id="map"></div>
+    </div>
+
+    <!-- Vista Plano / Croquis -->
+    <div id="view-sketch" class="view-container">
+        <div id="sketch-wrapper">
+            <canvas id="sketch-canvas"></canvas>
+        </div>
+    </div>
+
+    <!-- Librerías JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script>
+        let activeTab = 'satellite';
+        let isEraserActive = false;
+        let isSettingScale = false;
+        let pxPerMeter = null;
+
+        // --- ESTADO NAVEGACIÓN CANVAS ---
+        let scale = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+        let isPanning = false;
+        let panStartX = 0, panStartY = 0;
+
+        // Estado Gestos Táctiles
+        let tpCache = [];
+        let prevDiff = -1;
+        let prevPanPoint = null;
+
+        function screenToWorld(sx, sy) {
+            return { x: (sx - offsetX) / scale, y: (sy - offsetY) / scale };
+        }
+
+        function resetSketchView() {
+            scale = 1; offsetX = 0; offsetY = 0;
+            drawSketch();
+        }
+
+        // --- CONTROL DE PESTAÑAS ---
+        function switchTab(tab) {
+            activeTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
+            cancelAddCamera(); cancelEraser(); cancelScaleMode();
+
+            if (tab === 'satellite') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('view-satellite').classList.add('active');
+                document.getElementById('sketch-tools').style.display = 'none';
+                setTimeout(() => map.invalidateSize(), 200);
+            } else {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('view-sketch').classList.add('active');
+                document.getElementById('sketch-tools').style.display = 'flex';
+                resizeSketchCanvas();
+            }
+        }
+
+        // --- MAPA SATELITAL ---
+        const map = L.map('map', { maxZoom: 22, preferCanvas: true, zoomControl: false }).setView([-28.469, -65.779], 18);
+        L.control.zoom({ position: 'topleft' }).addTo(map);
+
+        L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 22, maxNativeZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: 'Google'
+        }).addTo(map);
+
+        L.Control.geocoder({ defaultMarkGeocode: false, placeholder: '🔍 Buscar dirección...' })
+            .on('markgeocode', e => map.fitBounds(e.geocode.bbox)).addTo(map);
+
+        let camerasList = [];
+        let isAddingCamera = false;
+
+        function toggleAddCamera() {
+            cancelEraser(); cancelScaleMode();
+            const addBtn = document.getElementById('addBtn');
+            if (!isAddingCamera) {
+                isAddingCamera = true;
+                addBtn.classList.add('btn-adding');
+                addBtn.innerHTML = '📍 Haga clic en el plano...';
+                if(activeTab === 'satellite') map.getContainer().style.cursor = 'crosshair';
+            } else { cancelAddCamera(); }
+        }
+
+        function cancelAddCamera() {
+            isAddingCamera = false;
+            const addBtn = document.getElementById('addBtn');
+            addBtn.classList.remove('btn-adding');
+            addBtn.innerHTML = '➕ Agregar Cámara';
+            if(map) map.getContainer().style.cursor = '';
+        }
+
+        function toggleEraser() {
+            cancelAddCamera(); cancelScaleMode();
+            const btnEraser = document.getElementById('btnEraser');
+            if (!isEraserActive) {
+                isEraserActive = true;
+                btnEraser.classList.add('btn-erasing');
+                btnEraser.innerHTML = '🧹 Seleccione elemento...';
+            } else { cancelEraser(); }
+        }
+
+        function cancelEraser() {
+            isEraserActive = false;
+            const btnEraser = document.getElementById('btnEraser');
+            if(btnEraser) { btnEraser.classList.remove('btn-erasing'); btnEraser.innerHTML = '🧹 Borrar Pared'; }
+        }
+
+        function toggleSetScale() {
+            cancelAddCamera(); cancelEraser();
+            const btnScale = document.getElementById('btnScale');
+            if(!isSettingScale) {
+                isSettingScale = true;
+                btnScale.classList.add('btn-scale');
+                btnScale.innerHTML = '📏 Traza una pared...';
+            } else { cancelScaleMode(); }
+        }
+
+        function cancelScaleMode() {
+            isSettingScale = false;
+            const btnScale = document.getElementById('btnScale');
+            if(btnScale) { btnScale.classList.remove('btn-scale'); btnScale.innerHTML = '📏 Definir Escala'; }
+        }
+
+        function getDestinationPoint(lat, lng, distMeters, bearingDeg) {
+            const R = 6378137; const brng = bearingDeg * Math.PI / 180;
+            const lat1 = lat * Math.PI / 180; const lon1 = lng * Math.PI / 180;
+            const lat2 = Math.asin(Math.sin(lat1) * Math.cos(distMeters / R) + Math.cos(lat1) * Math.sin(distMeters / R) * Math.cos(brng));
+            const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(distMeters / R) * Math.cos(lat1), Math.cos(distMeters / R) - Math.sin(lat1) * Math.sin(lat2));
+            return [lat2 * 180 / Math.PI, lon2 * 180 / Math.PI];
+        }
+
+        function getCirclePoints(lat, lng, distMeters) {
+            const points = []; for (let a = 0; a < 360; a += 15) points.push(getDestinationPoint(lat, lng, distMeters, a));
+            return points;
+        }
+
+        function getConePoints(lat, lng, distMeters, bearingDeg, fovDeg) {
+            const startAngle = bearingDeg - (fovDeg / 2); const endAngle = bearingDeg + (fovDeg / 2);
+            const points = [[lat, lng]]; for (let a = startAngle; a <= endAngle; a += 3) points.push(getDestinationPoint(lat, lng, distMeters, a));
+            points.push([lat, lng]); return points;
+        }
+
+        function updateSatelliteLabels() { camerasList.forEach((camObj, index) => camObj.marker.setTooltipContent(`CAM ${index + 1}`)); }
+
+        function removeCameraObject(camObj) {
+            const index = camerasList.findIndex(c => c === camObj);
+            if (index !== -1) {
+                map.removeLayer(camObj.marker); map.removeLayer(camObj.handle); map.removeLayer(camObj.cone);
+                if (camObj.circle) map.removeLayer(camObj.circle);
+                camerasList.splice(index, 1); updateSatelliteLabels();
+            }
+        }
+
+        map.on('click', function(e) {
+            if (!isAddingCamera || activeTab !== 'satellite') return;
+            const type = document.getElementById('camType').value;
+            let dist = 20, fov = parseFloat(document.getElementById('focal').value), bearing = 0;
+            const centerLat = e.latlng.lat, centerLng = e.latlng.lng;
+
+            let circlePolygon = null;
+            if (type === 'Domo') { circlePolygon = L.polygon(getCirclePoints(centerLat, centerLng, dist), { color: '#9c27b0', fillColor: '#ba68c8', fillOpacity: 0.1, dashArray: '4, 4', weight: 1 }).addTo(map); }
+            const conePolygon = L.polygon(getConePoints(centerLat, centerLng, dist, bearing, fov), { color: '#007bff', fillColor: '#007bff', fillOpacity: 0.3, weight: 1.5 }).addTo(map);
+
+            const dotClass = type === 'Domo' ? 'cam-dot-marker cam-dot-domo' : 'cam-dot-marker';
+            const camMarker = L.marker([centerLat, centerLng], { draggable: true, icon: L.divIcon({ className: dotClass, iconSize: [14, 14] }) }).addTo(map);
+            camMarker.bindTooltip(`CAM ${camerasList.length + 1}`, { permanent: true, direction: 'top', offset: [0, -8], className: 'cam-label' });
+
+            const handleMarker = L.marker(getDestinationPoint(centerLat, centerLng, dist, bearing), { draggable: true, icon: L.divIcon({ className: 'drag-handle', iconSize: [12, 12] }) }).addTo(map);
+
+            const camObj = { type, dist, fov, bearing, marker: camMarker, handle: handleMarker, cone: conePolygon, circle: circlePolygon };
+            camerasList.push(camObj);
+
+            function updateGeometry() {
+                const center = camMarker.getLatLng(), handle = handleMarker.getLatLng();
+                camObj.dist = Math.round(center.distanceTo(handle));
+                const dLon = (handle.lng - center.lng) * Math.PI / 180, lat1 = center.lat * Math.PI / 180, lat2 = handle.lat * Math.PI / 180;
+                const y = Math.sin(dLon) * Math.cos(lat2), x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+                camObj.bearing = Math.round((Math.atan2(y, x) * 180 / Math.PI + 360) % 360);
+                conePolygon.setLatLngs(getConePoints(center.lat, center.lng, camObj.dist, camObj.bearing, fov));
+                if (circlePolygon) circlePolygon.setLatLngs(getCirclePoints(center.lat, center.lng, camObj.dist));
+            }
+
+            camMarker.on('click', (ev) => {
+                L.DomEvent.stopPropagation(ev);
+                const camNum = camerasList.findIndex(c => c === camObj) + 1;
+                if (confirm(`¿Desea eliminar la CAM ${camNum}?`)) {
+                    removeCameraObject(camObj);
+                }
+            });
+
+            camMarker.on('drag', (e) => { 
+                handleMarker.setLatLng(getDestinationPoint(camMarker.getLatLng().lat, camMarker.getLatLng().lng, camObj.dist, camObj.bearing)); 
+                updateGeometry(); 
+            });
+
+            handleMarker.on('drag', updateGeometry);
+            cancelAddCamera();
+        });
+
+        // --- CANVAS PLANO INTERIOR ---
+        const sketchCanvas = document.getElementById('sketch-canvas');
+        const ctx = sketchCanvas.getContext('2d');
+        let lines = [], sketchCameras = [];
+        let isDrawing = false, startWorldPos = { x: 0, y: 0 };
+        let dragTarget = null;
+        let isDraggingCam = false;
+
+        function resizeSketchCanvas() {
+            const wrapper = document.getElementById('sketch-wrapper');
+            sketchCanvas.width = wrapper.clientWidth; sketchCanvas.height = wrapper.clientHeight;
+            drawSketch();
+        }
+        window.addEventListener('resize', resizeSketchCanvas);
+
+        // FUNCIÓN AUXILIAR PARA DIBUJAR MEDIDAS ADAPTATIVAS (VERTICAL/HORIZONTAL)
+        function drawWallMeasure(x1, y1, x2, y2, color = '#007bff') {
+            if (!pxPerMeter) return;
+            const showMeasures = document.getElementById('showMeasures').checked;
+            if (!showMeasures && !isDrawing && !isSettingScale) return;
+
+            const meters = (Math.hypot(x2 - x1, y2 - y1) / pxPerMeter).toFixed(1);
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const isVertical = Math.abs(dy) > Math.abs(dx);
+
+            ctx.save();
+            ctx.font = `${11 / scale}px sans-serif`;
+            ctx.fillStyle = color;
+
+            if (isVertical) {
+                // Posicionar a la izquierda o derecha desplazado de la línea
+                const offsetXVal = (dy > 0 ? 12 : -12) / scale;
+                ctx.textAlign = dy > 0 ? 'left' : 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${meters}m`, midX + offsetXVal, midY);
+            } else {
+                // Posicionar arriba o abajo desplazado
+                const offsetYVal = (dx > 0 ? -8 : 14) / scale;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${meters}m`, midX, midY + offsetYVal);
+            }
+            ctx.restore();
+        }
+
+        function drawSketch() {
+            ctx.clearRect(0, 0, sketchCanvas.width, sketchCanvas.height);
+            ctx.save(); ctx.translate(offsetX, offsetY); ctx.scale(scale, scale);
+
+            // Grilla
+            ctx.strokeStyle = '#f0f0f5'; ctx.lineWidth = 0.5 / scale; const gridSize = 25;
+            const visibleLeft = -offsetX / scale, visibleTop = -offsetY / scale;
+            const visibleRight = visibleLeft + sketchCanvas.width / scale, visibleBottom = visibleTop + sketchCanvas.height / scale;
+            for (let x = Math.floor(visibleLeft/gridSize)*gridSize; x < visibleRight; x += gridSize) { ctx.beginPath(); ctx.moveTo(x, visibleTop); ctx.lineTo(x, visibleBottom); ctx.stroke(); }
+            for (let y = Math.floor(visibleTop/gridSize)*gridSize; y < visibleBottom; y += gridSize) { ctx.beginPath(); ctx.moveTo(visibleLeft, y); ctx.lineTo(visibleRight, y); ctx.stroke(); }
+
+            // Paredes
+            ctx.strokeStyle = '#222222'; ctx.lineWidth = 5 / scale; ctx.lineCap = 'round';
+            lines.forEach(line => {
+                ctx.beginPath(); ctx.moveTo(line.x1, line.y1); ctx.lineTo(line.x2, line.y2); ctx.stroke();
+                drawWallMeasure(line.x1, line.y1, line.x2, line.y2, '#007bff');
+            });
+
+            // Cámaras Interior
+            sketchCameras.forEach((cam, idx) => {
+                const radStart = (cam.angle - cam.fov / 2) * Math.PI / 180, radEnd = (cam.angle + cam.fov / 2) * Math.PI / 180;
+                if (cam.type === 'Domo') { ctx.beginPath(); ctx.arc(cam.x, cam.y, cam.radius, 0, Math.PI * 2); ctx.fillStyle = 'rgba(156, 39, 176, 0.1)'; ctx.fill(); ctx.strokeStyle = '#9c27b0'; ctx.lineWidth = 1/scale; ctx.setLineDash([4/scale, 4/scale]); ctx.stroke(); ctx.setLineDash([]); }
+                ctx.beginPath(); ctx.moveTo(cam.x, cam.y); ctx.arc(cam.x, cam.y, cam.radius, radStart, radEnd); ctx.closePath(); ctx.fillStyle = 'rgba(0, 123, 255, 0.25)'; ctx.fill(); ctx.strokeStyle = '#007bff'; ctx.lineWidth = 1.5 / scale; ctx.stroke();
+                ctx.beginPath(); ctx.arc(cam.x + Math.cos(cam.angle * Math.PI / 180) * cam.radius, cam.y + Math.sin(cam.angle * Math.PI / 180) * cam.radius, 6/scale, 0, Math.PI*2); ctx.fillStyle = '#ffc107'; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5/scale; ctx.stroke();
+                ctx.beginPath(); ctx.arc(cam.x, cam.y, 7/scale, 0, Math.PI * 2); ctx.fillStyle = cam.type === 'Domo' ? '#9c27b0' : '#007bff'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 / scale; ctx.stroke();
+                ctx.font = `bold ${11 / scale}px sans-serif`; ctx.fillStyle = '#000'; ctx.textAlign = 'center'; ctx.fillText(`CAM ${idx + 1}${pxPerMeter?` (${(cam.radius/pxPerMeter).toFixed(1)}m)` : ''}`, cam.x, cam.y - 12/scale);
+            });
+            ctx.restore();
+        }
+
+        // --- MANEJO DE ACCIONES EN EL CANVAS ---
+        function handleStart(screenX, screenY, isRightClick = false) {
+            if (isRightClick) {
+                isPanning = true; panStartX = screenX - offsetX; panStartY = screenY - offsetY; return;
+            }
+
+            const worldPos = screenToWorld(screenX, screenY);
+
+            if (isEraserActive) {
+                const lineIdx = lines.findIndex(l => pointToLineDistance(worldPos.x, worldPos.y, l.x1, l.y1, l.x2, l.y2) < (12 / scale));
+                if (lineIdx !== -1) { lines.splice(lineIdx, 1); drawSketch(); }
+                return;
+            }
+
+            if (isAddingCamera) {
+                sketchCameras.push({ x: worldPos.x, y: worldPos.y, type: document.getElementById('camType').value, fov: parseFloat(document.getElementById('focal').value), radius: 100, angle: 0 });
+                drawSketch(); cancelAddCamera(); return;
+            }
+
+            for (let i = sketchCameras.length - 1; i >= 0; i--) {
+                const cam = sketchCameras[i];
+                if (Math.hypot(worldPos.x - (cam.x + Math.cos(cam.angle * Math.PI / 180) * cam.radius), worldPos.y - (cam.y + Math.sin(cam.angle * Math.PI / 180) * cam.radius)) <= (16 / scale)) { dragTarget = { camIndex: i, type: 'handle' }; isDraggingCam = false; return; }
+                if (Math.hypot(worldPos.x - cam.x, worldPos.y - cam.y) <= (18 / scale)) { dragTarget = { camIndex: i, type: 'center' }; isDraggingCam = false; return; }
+            }
+
+            isDrawing = true; startWorldPos = worldPos;
+        }
+
+        function handleMove(screenX, screenY) {
+            if (isPanning) {
+                offsetX = screenX - panStartX; offsetY = screenY - panStartY; drawSketch(); return;
+            }
+
+            const worldPos = screenToWorld(screenX, screenY);
+
+            if (dragTarget) {
+                isDraggingCam = true;
+                const cam = sketchCameras[dragTarget.camIndex];
+                if (dragTarget.type === 'center') {
+                    cam.x = worldPos.x; cam.y = worldPos.y;
+                } else {
+                    const dx = worldPos.x - cam.x, dy = worldPos.y - cam.y;
+                    cam.angle = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+                    cam.radius = Math.max(25, Math.hypot(dx, dy));
+                }
+                drawSketch(); return;
+            }
+
+            if (isDrawing) {
+                drawSketch();
+                const dx = Math.abs(worldPos.x - startWorldPos.x), dy = Math.abs(worldPos.y - startWorldPos.y);
+                const endP = dx > dy ? { x: worldPos.x, y: startWorldPos.y } : { x: startWorldPos.x, y: worldPos.y };
+                ctx.save(); ctx.translate(offsetX, offsetY); ctx.scale(scale, scale);
+                ctx.strokeStyle = isSettingScale ? '#17a2b8' : '#007bff'; ctx.lineWidth = 3 / scale;
+                ctx.beginPath(); ctx.moveTo(startWorldPos.x, startWorldPos.y); ctx.lineTo(endP.x, endP.y); ctx.stroke();
+                drawWallMeasure(startWorldPos.x, startWorldPos.y, endP.x, endP.y, isSettingScale ? '#17a2b8' : '#007bff');
+                ctx.restore();
+            }
+        }
+
+        function handleEnd(screenX, screenY) {
+            if (isPanning) { isPanning = false; return; }
+
+            if (dragTarget) {
+                if (!isDraggingCam && dragTarget.type === 'center') {
+                    const camNum = dragTarget.camIndex + 1;
+                    if (confirm(`¿Desea eliminar la CAM ${camNum}?`)) {
+                        sketchCameras.splice(dragTarget.camIndex, 1);
+                    }
+                }
+                dragTarget = null; isDraggingCam = false; drawSketch(); return;
+            }
+
+            if (isDrawing) {
+                isDrawing = false;
+                const worldPos = screenToWorld(screenX, screenY);
+                const dx = Math.abs(worldPos.x - startWorldPos.x), dy = Math.abs(worldPos.y - startWorldPos.y);
+                const endP = dx > dy ? { x: worldPos.x, y: startWorldPos.y } : { x: startWorldPos.x, y: worldPos.y };
+                const distPx = Math.hypot(endP.x - startWorldPos.x, endP.y - startWorldPos.y);
+
+                if (isSettingScale) {
+                    if (distPx > 15) {
+                        setTimeout(() => {
+                            const m = parseFloat(prompt("Ingrese los metros reales para esta pared:", "5"));
+                            if (m > 0) { pxPerMeter = distPx / m; document.getElementById('scaleInfo').innerText = `Escala: ${Math.round(pxPerMeter)} px/m`; }
+                            cancelScaleMode(); drawSketch();
+                        }, 50);
+                    } else { cancelScaleMode(); drawSketch(); }
+                    return;
+                }
+
+                if (distPx > 15) { lines.push({ x1: startWorldPos.x, y1: startWorldPos.y, x2: endP.x, y2: endP.y }); }
+                drawSketch();
+            }
+        }
+
+        // --- EVENTOS MOUSE ---
+        sketchCanvas.addEventListener('mousedown', e => {
+            const rect = sketchCanvas.getBoundingClientRect();
+            handleStart(e.clientX - rect.left, e.clientY - rect.top, e.button === 2);
+        });
+        sketchCanvas.addEventListener('mousemove', e => {
+            const rect = sketchCanvas.getBoundingClientRect();
+            handleMove(e.clientX - rect.left, e.clientY - rect.top);
+        });
+        sketchCanvas.addEventListener('mouseup', e => {
+            const rect = sketchCanvas.getBoundingClientRect();
+            handleEnd(e.clientX - rect.left, e.clientY - rect.top);
+        });
+        sketchCanvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const rect = sketchCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
+            const zoom = e.deltaY < 0 ? 1.1 : 0.9;
+            const newScale = Math.min(Math.max(0.2, scale * zoom), 4);
+            offsetX = mouseX - (mouseX - offsetX) * (newScale / scale);
+            offsetY = mouseY - (mouseY - offsetY) * (newScale / scale);
+            scale = newScale; drawSketch();
+        }, { passive: false });
+        sketchCanvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        // --- EVENTOS TOUCH ---
+        function getDistance(t1, t2) { return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY); }
+        function getMidpoint(t1, t2) { return { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 }; }
+
+        sketchCanvas.addEventListener('touchstart', e => {
+            const rect = sketchCanvas.getBoundingClientRect();
+            tpCache = Array.from(e.touches);
+
+            if (tpCache.length === 2) {
+                prevDiff = getDistance(tpCache[0], tpCache[1]);
+                prevPanPoint = getMidpoint(tpCache[0], tpCache[1]);
+                isDrawing = false; dragTarget = null; return;
+            }
+
+            if (tpCache.length === 1) {
+                handleStart(tpCache[0].clientX - rect.left, tpCache[0].clientY - rect.top);
+            }
+        }, { passive: true });
+
+        sketchCanvas.addEventListener('touchmove', e => {
+            const rect = sketchCanvas.getBoundingClientRect();
+            tpCache = Array.from(e.touches);
+
+            if (tpCache.length === 2) {
+                const currentDiff = getDistance(tpCache[0], tpCache[1]);
+                if (prevDiff > 0) {
+                    const mid = getMidpoint(tpCache[0], tpCache[1]);
+                    const mouseX = mid.x - rect.left, mouseY = mid.y - rect.top;
+                    const zoomFactor = currentDiff / prevDiff;
+                    const newScale = Math.min(Math.max(0.2, scale * zoomFactor), 4);
+                    offsetX = mouseX - (mouseX - offsetX) * (newScale / scale);
+                    offsetY = mouseY - (mouseY - offsetY) * (newScale / scale);
+                    scale = newScale;
+                }
+                prevDiff = currentDiff;
+
+                const currentPanPoint = getMidpoint(tpCache[0], tpCache[1]);
+                if (prevPanPoint) {
+                    offsetX += (currentPanPoint.x - prevPanPoint.x);
+                    offsetY += (currentPanPoint.y - prevPanPoint.y);
+                }
+                prevPanPoint = currentPanPoint;
+                drawSketch(); return;
+            }
+
+            if (tpCache.length === 1) {
+                handleMove(tpCache[0].clientX - rect.left, tpCache[0].clientY - rect.top);
+            }
+        }, { passive: true });
+
+        sketchCanvas.addEventListener('touchend', e => {
+            const rect = sketchCanvas.getBoundingClientRect();
+            if (e.changedTouches.length > 0) {
+                handleEnd(e.changedTouches[0].clientX - rect.left, e.changedTouches[0].clientY - rect.top);
+            }
+            tpCache = Array.from(e.touches);
+            if (tpCache.length < 2) { prevDiff = -1; prevPanPoint = null; }
+        }, { passive: true });
+
+        function pointToLineDistance(px, py, x1, y1, x2, y2) { const A = px-x1, B = py-y1, C = x2-x1, D = y2-y1; const dot = A*C + B*D, len_sq = C*C + D*D; let param = -1; if (len_sq !== 0) param = dot / len_sq; let xx, yy; if (param < 0) { xx = x1; yy = y1; } else if (param > 1) { xx = x2; yy = y2; } else { xx = x1 + param*C; yy = y1 + param*D; } return Math.hypot(px-xx, py-yy); }
+        function clearSketch() { if (confirm("¿Está seguro de limpiar todo el plano?")) { lines = []; sketchCameras = []; pxPerMeter = null; document.getElementById('scaleInfo').innerText = "Escala: Sin definir"; resetSketchView(); } }
+
+        // --- EXPORTACIÓN (JPG / PDF) ---
+        function exportPlan(format = 'jpg') {
+            const fileName = prompt("Nombre del archivo a exportar:", "Plano_CCTV"); 
+            if (!fileName) return;
+
+            const isSat = activeTab === 'satellite'; 
+            const target = isSat ? document.getElementById('map') : document.getElementById('sketch-wrapper');
+            const tabBar = document.getElementById('tab-bar'), controls = document.getElementById('controls');
+            
+            tabBar.style.display = 'none'; 
+            controls.style.display = 'none'; 
+
+            if (isSat) map.invalidateSize(true); else resizeSketchCanvas();
+
+            setTimeout(() => {
+                html2canvas(target, { 
+                    useCORS: true, 
+                    allowTaint: true, 
+                    scale: 2, 
+                    width: target.clientWidth, 
+                    height: target.clientHeight 
+                }).then(canvas => {
+                    tabBar.style.display = 'flex'; 
+                    controls.style.display = 'flex'; 
+
+                    if (isSat) map.invalidateSize(true); else resizeSketchCanvas();
+
+                    if (format === 'jpg') {
+                        const link = document.createElement('a');
+                        link.download = `${fileName}.jpg`;
+                        link.href = canvas.toDataURL('image/jpeg', 0.9);
+                        link.click();
+                    } else if (format === 'pdf') {
+                        const { jsPDF } = window.jspdf;
+                        const imgData = canvas.toDataURL('image/jpeg', 0.9);
+                        const pdf = new jsPDF({
+                            orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+                            unit: 'px',
+                            format: [canvas.width, canvas.height]
+                        });
+                        pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
+                        pdf.save(`${fileName}.pdf`);
+                    }
+                }).catch(err => {
+                    console.error('Error durante la exportación:', err);
+                    tabBar.style.display = 'flex'; 
+                    controls.style.display = 'flex'; 
+                    if (isSat) map.invalidateSize(true); else resizeSketchCanvas();
+                });
+            }, 300);
+        }
+    </script>
+</body>
+</html>
