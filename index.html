@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Diseñador de CCTV Pro v21.5</title>
+    <title>CamMap Pro</title>
     <!-- Leaflet & Geocoder CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
@@ -11,48 +11,100 @@
     <style>
         * { 
             box-sizing: border-box; 
-            touch-action: none !important; /* Anula gestos nativos del navegador en todos los elementos */
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             user-select: none;
         }
         
-        /* 🛑 FIX DEFINITIVO: position: fixed quita el root scroll que activa el pull-to-refresh en Android */
+        /* Contención estricta del Root para evitar recargas nativas */
         html, body { 
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            width: 100%;
-            height: 100%;
-            margin: 0; 
-            padding: 0; 
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%;
+            margin: 0; padding: 0; 
             overflow: hidden !important; 
             overscroll-behavior: none !important;
             overscroll-behavior-y: none !important;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
             display: flex; 
             flex-direction: column; 
             background: #121218; 
             color: white; 
         }
         
-        /* Navegación por Pestañas */
-        #tab-bar { display: flex; background: #0f0f14; border-bottom: 2px solid #2a2a36; flex-shrink: 0; z-index: 1001; }
-        .tab-btn { padding: 12px 20px; background: transparent; border: none; color: #888; font-weight: bold; font-size: 14px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; border-bottom: 3px solid transparent; white-space: nowrap; }
+        /* Bar de Pestañas Superior */
+        #tab-bar { 
+            display: flex; 
+            background: #0f0f14; 
+            border-bottom: 1px solid #2a2a36; 
+            flex-shrink: 0; 
+            z-index: 1001; 
+            overflow-x: auto;
+            touch-action: pan-x;
+        }
+        .tab-btn { 
+            flex: 1;
+            padding: 10px 12px; 
+            background: transparent; 
+            border: none; 
+            color: #888; 
+            font-weight: bold; 
+            font-size: 13px; 
+            cursor: pointer; 
+            transition: 0.2s; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            gap: 6px; 
+            border-bottom: 3px solid transparent; 
+            white-space: nowrap; 
+        }
         .tab-btn.active { color: #007bff; border-bottom-color: #007bff; background: #1a1a24; }
 
-        /* Panel Superior de Controles */
-        #controls { padding: 10px 14px; background: #1a1a24; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.4); flex-shrink: 0; }
-        label { font-size: 11px; font-weight: bold; display: flex; flex-direction: column; gap: 3px; }
-        select, input[type="checkbox"] { border-radius: 5px; border: 1px solid #444; background: #2a2a36; color: white; font-size: 13px; }
-        select { padding: 6px 8px; }
+        /* Panel de Controles Adaptativo (Permite Scroll Horizontal sin romper nada) */
+        #controls { 
+            padding: 8px; 
+            background: #1a1a24; 
+            display: flex; 
+            gap: 6px; 
+            align-items: center; 
+            z-index: 1000; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4); 
+            flex-shrink: 0; 
+            overflow-x: auto; /* PERMITE SCROLL DE BOTONES EN CELULARES */
+            white-space: nowrap;
+            touch-action: pan-x; /* Permite deslizar los botones con el dedo */
+            -webkit-overflow-scrolling: touch;
+        }
         
-        .chk-label { flex-direction: row !important; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: 12px; margin-left: 5px; }
-        .chk-label input { width: 16px; height: 16px; cursor: pointer; }
+        /* Scrollbar discreta para los botones en móvil */
+        #controls::-webkit-scrollbar { height: 3px; }
+        #controls::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
 
-        button.action-btn { padding: 8px 14px; background: #007bff; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 13px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+        .control-group { display: flex; align-items: center; gap: 6px; }
+
+        label { font-size: 10px; font-weight: bold; display: flex; flex-direction: column; gap: 2px; color: #ccc; }
+        select, input[type="checkbox"] { border-radius: 4px; border: 1px solid #444; background: #2a2a36; color: white; font-size: 12px; }
+        select { padding: 4px 6px; }
+        
+        .chk-label { flex-direction: row !important; align-items: center; gap: 4px; cursor: pointer; font-size: 11px; margin-left: 2px; }
+        .chk-label input { width: 14px; height: 14px; }
+
+        button.action-btn { 
+            padding: 6px 10px; 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            font-size: 12px; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 4px; 
+            white-space: nowrap; 
+            flex-shrink: 0;
+        }
         
         .btn-adding { background: #ffc107 !important; color: #000 !important; animation: pulse 1.5s infinite; }
         .btn-erasing { background: #dc3545 !important; color: #fff !important; animation: pulse 1.5s infinite; }
@@ -61,68 +113,78 @@
 
         .btn-export-jpg { background: #28a745; }
         .btn-export-pdf { background: #dc3545; }
-        .btn-tool { background: #007bff; }
+        .btn-tool { background: #323242; color: #e0e0e0; border: 1px solid #444; }
 
-        /* Contenedores de Vistas */
-        .view-container { flex: 1; width: 100%; height: 100%; position: relative; display: none; overflow: hidden; }
+        /* Contenedores de Vistas - Bloqueo táctil exclusivo aquí */
+        .view-container { 
+            flex: 1; 
+            width: 100%; 
+            height: 100%; 
+            position: relative; 
+            display: none; 
+            overflow: hidden; 
+            touch-action: none !important; /* Bloquea gestos del navegador DENTRO del mapa/canvas */
+        }
         .view-container.active { display: block; }
-        #map { width: 100%; height: 100%; background: #000; }
+        #map { width: 100%; height: 100%; background: #000; touch-action: none !important; }
 
-        /* Canvas de Croquis Interior */
-        #sketch-wrapper { width: 100%; height: 100%; position: relative; background: #ffffff; overflow: hidden; }
-        #sketch-canvas { position: absolute; top: 0; left: 0; z-index: 1; outline: none; cursor: crosshair; }
+        /* Canvas Croquis */
+        #sketch-wrapper { width: 100%; height: 100%; position: relative; background: #ffffff; overflow: hidden; touch-action: none !important; }
+        #sketch-canvas { position: absolute; top: 0; left: 0; z-index: 1; outline: none; cursor: crosshair; touch-action: none !important; }
 
         /* Estilos Leaflet y UI */
         .drag-handle { background: #ffc107; border: 2px solid #000; border-radius: 50%; cursor: pointer; }
-        .cam-dot-marker { background: #007bff; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 6px rgba(0,0,0,0.8); cursor: grab; }
+        .cam-dot-marker { background: #007bff; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 6px rgba(0,0,0,0.8); }
         .cam-dot-domo { background: #9c27b0; }
         .cam-label { background: rgba(18, 18, 24, 0.85) !important; color: #ffffff !important; border: 1px solid #007bff !important; font-weight: bold !important; font-size: 10px !important; padding: 1px 4px !important; border-radius: 3px !important; }
 
-        .export-group { display: flex; gap: 5px; }
+        .divider { width: 1px; height: 20px; background: #444; margin: 0 2px; flex-shrink: 0; }
     </style>
 </head>
 <body>
 
     <!-- Bar de Pestañas Principal -->
     <div id="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('satellite')">🗺️ Satelital (Exterior)</button>
-        <button class="tab-btn" onclick="switchTab('sketch')">📐 Plano / Croquis (Interior)</button>
+        <button class="tab-btn active" onclick="switchTab('satellite')">🗺️ Satelital</button>
+        <button class="tab-btn" onclick="switchTab('sketch')">📐 Croquis</button>
     </div>
 
-    <!-- Panel Superior -->
+    <!-- Panel Superior con Scroll Horizontal Integrado -->
     <div id="controls">
-        <label>Tipo Cámara:
-            <select id="camType">
-                <option value="Bullet">Bullet (Fija)</option>
-                <option value="Domo">Domo 360</option>
-            </select>
-        </label>
-        <label>Lente:
-            <select id="focal">
-                <option value="103">2.8 mm (103°)</option>
-                <option value="84" selected>3.6 mm (84°)</option>
-                <option value="55">6.0 mm (55°)</option>
-            </select>
-        </label>
-        <button id="addBtn" class="action-btn" onclick="toggleAddCamera()">➕ Agregar Cámara</button>
+        <div class="control-group">
+            <label>Tipo:
+                <select id="camType">
+                    <option value="Bullet">Bullet</option>
+                    <option value="Domo">Domo</option>
+                </select>
+            </label>
+            <label>Lente:
+                <select id="focal">
+                    <option value="103">2.8mm (103°)</option>
+                    <option value="84" selected>3.6mm (84°)</option>
+                    <option value="55">6.0mm (55°)</option>
+                </select>
+            </label>
+            <button id="addBtn" class="action-btn" onclick="toggleAddCamera()">➕ Añadir Cam</button>
+        </div>
 
-        <div id="sketch-tools" style="display: none; gap: 8px; align-items: center;">
-            <button id="btnScale" class="action-btn btn-tool" onclick="toggleSetScale()">📏 Definir Escala</button>
-            <button id="btnEraser" class="action-btn btn-tool" onclick="toggleEraser()">🧹 Borrar Pared</button>
-            <button id="btnResetView" class="action-btn btn-tool" onclick="resetSketchView()">🔍 Centrar Vista</button>
-            <button id="btnClearSketch" class="action-btn btn-tool" onclick="clearSketch()">🗑️ Limpiar Todo</button>
+        <div id="sketch-tools" style="display: none; align-items: center; gap: 6px;">
+            <div class="divider"></div>
+            <button id="btnScale" class="action-btn btn-tool" onclick="toggleSetScale()">📏 Escala</button>
+            <button id="btnEraser" class="action-btn btn-tool" onclick="toggleEraser()">🧹 Borrar</button>
+            <button id="btnResetView" class="action-btn btn-tool" onclick="resetSketchView()">🔍 Centrar</button>
+            <button id="btnClearSketch" class="action-btn btn-tool" onclick="clearSketch()">🗑️ Limpiar</button>
             
             <label class="chk-label">
                 <input type="checkbox" id="showMeasures" checked onchange="drawSketch()">
-                Mostrar Medidas
+                Medidas
             </label>
-            <span id="scaleInfo" style="font-size: 12px; color: #aaa; margin-left: 5px;">Escala: Sin definir</span>
+            <span id="scaleInfo" style="font-size: 10px; color: #aaa; margin-left: 2px;">Sin escala</span>
         </div>
 
-        <div class="export-group">
-            <button class="action-btn btn-export-jpg" onclick="exportPlan('jpg')">🖼️ JPG</button>
-            <button class="action-btn btn-export-pdf" onclick="exportPlan('pdf')">📄 PDF</button>
-        </div>
+        <div class="divider"></div>
+        <button class="action-btn btn-export-jpg" onclick="exportPlan('jpg')">🖼️ JPG</button>
+        <button class="action-btn btn-export-pdf" onclick="exportPlan('pdf')">📄 PDF</button>
     </div>
 
     <!-- Vista Satelital -->
@@ -144,43 +206,41 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <script>
-        // 🛑 ANULACIÓN RIGUROSA DE RECARGA A NIVELES TOUCHSTART Y TOUCHMOVE
-        function blockRefresh(e) {
-            if (e.cancelable) {
-                e.preventDefault();
+        // Prevenir la recarga deslizando hacia abajo SOLO si ocurre fuera de controles manipulables
+        document.addEventListener('touchstart', function(e) {
+            if (e.touches.length === 1 && e.clientY < 50) {
+                // Si el toque arranca muy arriba en la pantalla, cancela el gesto nativo
+                if (e.cancelable) e.preventDefault();
             }
-        }
-        document.addEventListener('touchstart', blockRefresh, { passive: false });
-        document.addEventListener('touchmove', blockRefresh, { passive: false });
-        window.addEventListener('scroll', () => window.scrollTo(0, 0));
+        }, { passive: false });
+
+        document.addEventListener('touchmove', function(e) {
+            // Evitar overscroll en el documento general
+            if (!e.target.closest('#controls') && !e.target.closest('#tab-bar')) {
+                if (e.cancelable) e.preventDefault();
+            }
+        }, { passive: false });
 
         let activeTab = 'satellite';
         let isEraserActive = false;
         let isSettingScale = false;
         let pxPerMeter = null;
 
-        // --- ESTADO NAVEGACIÓN CANVAS ---
+        // --- ESTADO CANVAS ---
         let scale = 1;
-        let offsetX = 0;
-        let offsetY = 0;
+        let offsetX = 0, offsetY = 0;
         let isPanning = false;
         let panStartX = 0, panStartY = 0;
 
-        // Estado Gestos Táctiles
         let tpCache = [];
         let prevDiff = -1;
         let prevPanPoint = null;
 
-        function screenToWorld(sx, sy) {
-            return { x: (sx - offsetX) / scale, y: (sy - offsetY) / scale };
-        }
+        function screenToWorld(sx, sy) { return { x: (sx - offsetX) / scale, y: (sy - offsetY) / scale }; }
 
-        function resetSketchView() {
-            scale = 1; offsetX = 0; offsetY = 0;
-            drawSketch();
-        }
+        function resetSketchView() { scale = 1; offsetX = 0; offsetY = 0; drawSketch(); }
 
-        // --- CONTROL DE PESTAÑAS ---
+        // --- PESTAÑAS ---
         function switchTab(tab) {
             activeTab = tab;
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -208,19 +268,13 @@
             maxZoom: 22, maxNativeZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: 'Google'
         }).addTo(map);
 
-        // Buscador Photon (Komoot)
         L.Control.geocoder({
             geocoder: L.Control.Geocoder.photon(),
             defaultMarkGeocode: false,
-            placeholder: '🔍 Buscar ciudad, calle o lugar...'
+            placeholder: '🔍 Buscar dirección...'
         }).on('markgeocode', function(e) {
             const bbox = e.geocode.bbox;
-            const poly = L.polygon([
-                bbox.getSouthEast(),
-                bbox.getNorthEast(),
-                bbox.getNorthWest(),
-                bbox.getSouthWest()
-            ]);
+            const poly = L.polygon([bbox.getSouthEast(), bbox.getNorthEast(), bbox.getNorthWest(), bbox.getSouthWest()]);
             map.fitBounds(poly.getBounds());
         }).addTo(map);
 
@@ -233,7 +287,7 @@
             if (!isAddingCamera) {
                 isAddingCamera = true;
                 addBtn.classList.add('btn-adding');
-                addBtn.innerHTML = '📍 Haga clic en el plano...';
+                addBtn.innerHTML = '📍 Tocar mapa...';
                 if(activeTab === 'satellite') map.getContainer().style.cursor = 'crosshair';
             } else { cancelAddCamera(); }
         }
@@ -241,7 +295,7 @@
         function cancelAddCamera() {
             isAddingCamera = false;
             const addBtn = document.getElementById('addBtn');
-            addBtn.innerHTML = '➕ Agregar Cámara';
+            addBtn.innerHTML = '➕ Añadir Cam';
             if(addBtn) addBtn.classList.remove('btn-adding');
             if(map) map.getContainer().style.cursor = '';
         }
@@ -252,14 +306,14 @@
             if (!isEraserActive) {
                 isEraserActive = true;
                 btnEraser.classList.add('btn-erasing');
-                btnEraser.innerHTML = '🧹 Seleccione elemento...';
+                btnEraser.innerHTML = '🧹 Tocar pared';
             } else { cancelEraser(); }
         }
 
         function cancelEraser() {
             isEraserActive = false;
             const btnEraser = document.getElementById('btnEraser');
-            if(btnEraser) { btnEraser.classList.remove('btn-erasing'); btnEraser.innerHTML = '🧹 Borrar Pared'; }
+            if(btnEraser) { btnEraser.classList.remove('btn-erasing'); btnEraser.innerHTML = '🧹 Borrar'; }
         }
 
         function toggleSetScale() {
@@ -268,14 +322,14 @@
             if(!isSettingScale) {
                 isSettingScale = true;
                 btnScale.classList.add('btn-scale');
-                btnScale.innerHTML = '📏 Traza una pared...';
+                btnScale.innerHTML = '📏 Traza pared';
             } else { cancelScaleMode(); }
         }
 
         function cancelScaleMode() {
             isSettingScale = false;
             const btnScale = document.getElementById('btnScale');
-            if(btnScale) { btnScale.classList.remove('btn-scale'); btnScale.innerHTML = '📏 Definir Escala'; }
+            if(btnScale) { btnScale.classList.remove('btn-scale'); btnScale.innerHTML = '📏 Escala'; }
         }
 
         function getDestinationPoint(lat, lng, distMeters, bearingDeg) {
@@ -340,12 +394,10 @@
             camMarker.on('click', (ev) => {
                 L.DomEvent.stopPropagation(ev);
                 const camNum = camerasList.findIndex(c => c === camObj) + 1;
-                if (confirm(`¿Desea eliminar la CAM ${camNum}?`)) {
-                    removeCameraObject(camObj);
-                }
+                if (confirm(`¿Eliminar CAM ${camNum}?`)) removeCameraObject(camObj);
             });
 
-            camMarker.on('drag', (e) => { 
+            camMarker.on('drag', () => { 
                 handleMarker.setLatLng(getDestinationPoint(camMarker.getLatLng().lat, camMarker.getLatLng().lng, camObj.dist, camObj.bearing)); 
                 updateGeometry(); 
             });
@@ -354,13 +406,12 @@
             cancelAddCamera();
         });
 
-        // --- CANVAS PLANO INTERIOR ---
+        // --- CANVAS CROQUIS ---
         const sketchCanvas = document.getElementById('sketch-canvas');
         const ctx = sketchCanvas.getContext('2d');
         let lines = [], sketchCameras = [];
         let isDrawing = false, startWorldPos = { x: 0, y: 0 };
-        let dragTarget = null;
-        let isDraggingCam = false;
+        let dragTarget = null, isDraggingCam = false;
 
         function resizeSketchCanvas() {
             const wrapper = document.getElementById('sketch-wrapper');
@@ -375,11 +426,8 @@
             if (!showMeasures && !isDrawing && !isSettingScale) return;
 
             const meters = (Math.hypot(x2 - x1, y2 - y1) / pxPerMeter).toFixed(1);
-            const midX = (x1 + x2) / 2;
-            const midY = (y1 + y2) / 2;
-
-            const dx = x2 - x1;
-            const dy = y2 - y1;
+            const midX = (x1 + x2) / 2, midY = (y1 + y2) / 2;
+            const dx = x2 - x1, dy = y2 - y1;
             const isVertical = Math.abs(dy) > Math.abs(dx);
 
             ctx.save();
@@ -387,15 +435,13 @@
             ctx.fillStyle = color;
 
             if (isVertical) {
-                const offsetXVal = (dy > 0 ? 12 : -12) / scale;
                 ctx.textAlign = dy > 0 ? 'left' : 'right';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(`${meters}m`, midX + offsetXVal, midY);
+                ctx.fillText(`${meters}m`, midX + ((dy > 0 ? 10 : -10) / scale), midY);
             } else {
-                const offsetYVal = (dx > 0 ? -8 : 14) / scale;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(`${meters}m`, midX, midY + offsetYVal);
+                ctx.fillText(`${meters}m`, midX, midY + ((dx > 0 ? -8 : 12) / scale));
             }
             ctx.restore();
         }
@@ -418,7 +464,7 @@
                 drawWallMeasure(line.x1, line.y1, line.x2, line.y2, '#007bff');
             });
 
-            // Cámaras Interior
+            // Cámaras
             sketchCameras.forEach((cam, idx) => {
                 const radStart = (cam.angle - cam.fov / 2) * Math.PI / 180, radEnd = (cam.angle + cam.fov / 2) * Math.PI / 180;
                 if (cam.type === 'Domo') { ctx.beginPath(); ctx.arc(cam.x, cam.y, cam.radius, 0, Math.PI * 2); ctx.fillStyle = 'rgba(156, 39, 176, 0.1)'; ctx.fill(); ctx.strokeStyle = '#9c27b0'; ctx.lineWidth = 1/scale; ctx.setLineDash([4/scale, 4/scale]); ctx.stroke(); ctx.setLineDash([]); }
@@ -430,12 +476,9 @@
             ctx.restore();
         }
 
-        // --- MANEJO DE ACCIONES EN EL CANVAS ---
+        // --- MANEJO DE ACCIONES ---
         function handleStart(screenX, screenY, isRightClick = false) {
-            if (isRightClick) {
-                isPanning = true; panStartX = screenX - offsetX; panStartY = screenY - offsetY; return;
-            }
-
+            if (isRightClick) { isPanning = true; panStartX = screenX - offsetX; panStartY = screenY - offsetY; return; }
             const worldPos = screenToWorld(screenX, screenY);
 
             if (isEraserActive) {
@@ -459,10 +502,7 @@
         }
 
         function handleMove(screenX, screenY) {
-            if (isPanning) {
-                offsetX = screenX - panStartX; offsetY = screenY - panStartY; drawSketch(); return;
-            }
-
+            if (isPanning) { offsetX = screenX - panStartX; offsetY = screenY - panStartY; drawSketch(); return; }
             const worldPos = screenToWorld(screenX, screenY);
 
             if (dragTarget) {
@@ -496,9 +536,7 @@
             if (dragTarget) {
                 if (!isDraggingCam && dragTarget.type === 'center') {
                     const camNum = dragTarget.camIndex + 1;
-                    if (confirm(`¿Desea eliminar la CAM ${camNum}?`)) {
-                        sketchCameras.splice(dragTarget.camIndex, 1);
-                    }
+                    if (confirm(`¿Eliminar CAM ${camNum}?`)) sketchCameras.splice(dragTarget.camIndex, 1);
                 }
                 dragTarget = null; isDraggingCam = false; drawSketch(); return;
             }
@@ -513,109 +551,84 @@
                 if (isSettingScale) {
                     if (distPx > 15) {
                         setTimeout(() => {
-                            const m = parseFloat(prompt("Ingrese los metros reales para esta pared:", "5"));
-                            if (m > 0) { pxPerMeter = distPx / m; document.getElementById('scaleInfo').innerText = `Escala: ${Math.round(pxPerMeter)} px/m`; }
+                            const m = parseFloat(prompt("Metros reales de la pared:", "5"));
+                            if (m > 0) { pxPerMeter = distPx / m; document.getElementById('scaleInfo').innerText = `${Math.round(pxPerMeter)}px/m`; }
                             cancelScaleMode(); drawSketch();
                         }, 50);
                     } else { cancelScaleMode(); drawSketch(); }
                     return;
                 }
 
-                if (distPx > 15) { lines.push({ x1: startWorldPos.x, y1: startWorldPos.y, x2: endP.x, y2: endP.y }); }
+                if (distPx > 15) lines.push({ x1: startWorldPos.x, y1: startWorldPos.y, x2: endP.x, y2: endP.y });
                 drawSketch();
             }
         }
 
-        // --- EVENTOS MOUSE ---
-        sketchCanvas.addEventListener('mousedown', e => {
-            const rect = sketchCanvas.getBoundingClientRect();
-            handleStart(e.clientX - rect.left, e.clientY - rect.top, e.button === 2);
-        });
-        sketchCanvas.addEventListener('mousemove', e => {
-            const rect = sketchCanvas.getBoundingClientRect();
-            handleMove(e.clientX - rect.left, e.clientY - rect.top);
-        });
-        sketchCanvas.addEventListener('mouseup', e => {
-            const rect = sketchCanvas.getBoundingClientRect();
-            handleEnd(e.clientX - rect.left, e.clientY - rect.top);
-        });
+        // --- MOUSE ---
+        sketchCanvas.addEventListener('mousedown', e => { const r = sketchCanvas.getBoundingClientRect(); handleStart(e.clientX - r.left, e.clientY - r.top, e.button === 2); });
+        sketchCanvas.addEventListener('mousemove', e => { const r = sketchCanvas.getBoundingClientRect(); handleMove(e.clientX - r.left, e.clientY - r.top); });
+        sketchCanvas.addEventListener('mouseup', e => { const r = sketchCanvas.getBoundingClientRect(); handleEnd(e.clientX - r.left, e.clientY - r.top); });
         sketchCanvas.addEventListener('wheel', e => {
             e.preventDefault();
-            const rect = sketchCanvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
-            const zoom = e.deltaY < 0 ? 1.1 : 0.9;
-            const newScale = Math.min(Math.max(0.2, scale * zoom), 4);
+            const r = sketchCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - r.left, mouseY = e.clientY - r.top;
+            const newScale = Math.min(Math.max(0.2, scale * (e.deltaY < 0 ? 1.1 : 0.9)), 4);
             offsetX = mouseX - (mouseX - offsetX) * (newScale / scale);
             offsetY = mouseY - (mouseY - offsetY) * (newScale / scale);
             scale = newScale; drawSketch();
         }, { passive: false });
         sketchCanvas.addEventListener('contextmenu', e => e.preventDefault());
 
-        // --- EVENTOS TOUCH INTERNOS ---
+        // --- TOUCH ---
         function getDistance(t1, t2) { return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY); }
         function getMidpoint(t1, t2) { return { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 }; }
 
         sketchCanvas.addEventListener('touchstart', e => {
-            const rect = sketchCanvas.getBoundingClientRect();
+            const r = sketchCanvas.getBoundingClientRect();
             tpCache = Array.from(e.touches);
-
             if (tpCache.length === 2) {
                 prevDiff = getDistance(tpCache[0], tpCache[1]);
                 prevPanPoint = getMidpoint(tpCache[0], tpCache[1]);
                 isDrawing = false; dragTarget = null; return;
             }
-
-            if (tpCache.length === 1) {
-                handleStart(tpCache[0].clientX - rect.left, tpCache[0].clientY - rect.top);
-            }
+            if (tpCache.length === 1) handleStart(tpCache[0].clientX - r.left, tpCache[0].clientY - r.top);
         }, { passive: false });
 
         sketchCanvas.addEventListener('touchmove', e => {
-            const rect = sketchCanvas.getBoundingClientRect();
+            const r = sketchCanvas.getBoundingClientRect();
             tpCache = Array.from(e.touches);
-
             if (tpCache.length === 2) {
                 const currentDiff = getDistance(tpCache[0], tpCache[1]);
                 if (prevDiff > 0) {
                     const mid = getMidpoint(tpCache[0], tpCache[1]);
-                    const mouseX = mid.x - rect.left, mouseY = mid.y - rect.top;
-                    const zoomFactor = currentDiff / prevDiff;
-                    const newScale = Math.min(Math.max(0.2, scale * zoomFactor), 4);
+                    const mouseX = mid.x - r.left, mouseY = mid.y - r.top;
+                    const newScale = Math.min(Math.max(0.2, scale * (currentDiff / prevDiff)), 4);
                     offsetX = mouseX - (mouseX - offsetX) * (newScale / scale);
                     offsetY = mouseY - (mouseY - offsetY) * (newScale / scale);
                     scale = newScale;
                 }
                 prevDiff = currentDiff;
-
                 const currentPanPoint = getMidpoint(tpCache[0], tpCache[1]);
-                if (prevPanPoint) {
-                    offsetX += (currentPanPoint.x - prevPanPoint.x);
-                    offsetY += (currentPanPoint.y - prevPanPoint.y);
-                }
+                if (prevPanPoint) { offsetX += (currentPanPoint.x - prevPanPoint.x); offsetY += (currentPanPoint.y - prevPanPoint.y); }
                 prevPanPoint = currentPanPoint;
                 drawSketch(); return;
             }
-
-            if (tpCache.length === 1) {
-                handleMove(tpCache[0].clientX - rect.left, tpCache[0].clientY - rect.top);
-            }
+            if (tpCache.length === 1) handleMove(tpCache[0].clientX - r.left, tpCache[0].clientY - r.top);
         }, { passive: false });
 
         sketchCanvas.addEventListener('touchend', e => {
-            const rect = sketchCanvas.getBoundingClientRect();
-            if (e.changedTouches.length > 0) {
-                handleEnd(e.changedTouches[0].clientX - rect.left, e.changedTouches[0].clientY - rect.top);
-            }
+            const r = sketchCanvas.getBoundingClientRect();
+            if (e.changedTouches.length > 0) handleEnd(e.changedTouches[0].clientX - r.left, e.changedTouches[0].clientY - r.top);
             tpCache = Array.from(e.touches);
             if (tpCache.length < 2) { prevDiff = -1; prevPanPoint = null; }
         }, { passive: false });
 
         function pointToLineDistance(px, py, x1, y1, x2, y2) { const A = px-x1, B = py-y1, C = x2-x1, D = y2-y1; const dot = A*C + B*D, len_sq = C*C + D*D; let param = -1; if (len_sq !== 0) param = dot / len_sq; let xx, yy; if (param < 0) { xx = x1; yy = y1; } else if (param > 1) { xx = x2; yy = y2; } else { xx = x1 + param*C; yy = y1 + param*D; } return Math.hypot(px-xx, py-yy); }
-        function clearSketch() { if (confirm("¿Está seguro de limpiar todo el plano?")) { lines = []; sketchCameras = []; pxPerMeter = null; document.getElementById('scaleInfo').innerText = "Escala: Sin definir"; resetSketchView(); } }
+        function clearSketch() { if (confirm("¿Limpiar todo el plano?")) { lines = []; sketchCameras = []; pxPerMeter = null; document.getElementById('scaleInfo').innerText = "Sin escala"; resetSketchView(); } }
 
-        // --- EXPORTACIÓN (JPG / PDF) ---
+        // --- EXPORTACIÓN ---
         function exportPlan(format = 'jpg') {
-            const fileName = prompt("Nombre del archivo a exportar:", "Plano_CCTV"); 
+            const fileName = prompt("Nombre del archivo:", "Plano_CCTV"); 
             if (!fileName) return;
 
             const isSat = activeTab === 'satellite'; 
@@ -628,37 +641,28 @@
             if (isSat) map.invalidateSize(true); else resizeSketchCanvas();
 
             setTimeout(() => {
-                html2canvas(target, { 
-                    useCORS: true, 
-                    allowTaint: true, 
-                    scale: 2, 
-                    width: target.clientWidth, 
-                    height: target.clientHeight 
-                }).then(canvas => {
+                html2canvas(target, { useCORS: true, allowTaint: true, scale: 2, width: target.clientWidth, height: target.clientHeight }).then(canvas => {
                     tabBar.style.display = 'flex'; 
                     controls.style.display = 'flex'; 
 
                     if (isSat) map.invalidateSize(true); else resizeSketchCanvas();
 
                     if (format === 'jpg') {
-                        const link = document.getElementById('a');
                         const linkEl = document.createElement('a');
                         linkEl.download = `${fileName}.jpg`;
                         linkEl.href = canvas.toDataURL('image/jpeg', 0.9);
                         linkEl.click();
                     } else if (format === 'pdf') {
                         const { jsPDF } = window.jspdf;
-                        const imgData = canvas.toDataURL('image/jpeg', 0.9);
                         const pdf = new jsPDF({
                             orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
                             unit: 'px',
                             format: [canvas.width, canvas.height]
                         });
-                        pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
+                        pdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, canvas.width, canvas.height);
                         pdf.save(`${fileName}.pdf`);
                     }
                 }).catch(err => {
-                    console.error('Error durante la exportación:', err);
                     tabBar.style.display = 'flex'; 
                     controls.style.display = 'flex'; 
                     if (isSat) map.invalidateSize(true); else resizeSketchCanvas();
