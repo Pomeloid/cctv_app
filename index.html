@@ -16,13 +16,14 @@
             user-select: none;
         }
         
-        /* Bloqueo estricto a nivel navegador para anular el Pull-to-Refresh */
+        /* BLOQUEO ESTRUCTURAL CONTRA PULL-TO-REFRESH Y SCROLL NATIVO */
         html, body { 
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             width: 100%; height: 100%;
             margin: 0; padding: 0; 
             overflow: hidden !important; 
+            touch-action: none !important;
             overscroll-behavior: none !important;
             overscroll-behavior-y: none !important;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
@@ -30,16 +31,16 @@
             flex-direction: column; 
             background: #121218; 
             color: white; 
-            touch-action: none; /* Bloqueo de gestos predeterminados del sistema */
         }
         
-        /* Bar de Pestañas Superior */
+        /* Barra de Pestañas Superior */
         #tab-bar { 
             display: flex; 
             background: #0f0f14; 
             border-bottom: 1px solid #2a2a36; 
             flex-shrink: 0; 
             z-index: 1001; 
+            touch-action: none;
         }
         .tab-btn { 
             flex: 1;
@@ -65,14 +66,14 @@
             padding: 6px 8px; 
             background: #1a1a24; 
             display: flex; 
-            flex-wrap: wrap; /* ACOMODA LOS BOTONES EN FILAS SEGÚN EL TAMAÑO */
+            flex-wrap: wrap; 
             gap: 6px; 
             align-items: center; 
             justify-content: flex-start;
             z-index: 1000; 
             box-shadow: 0 4px 12px rgba(0,0,0,0.4); 
             flex-shrink: 0; 
-            touch-action: manipulation; /* Permite toques fluidos sin scroll nativo */
+            touch-action: none;
         }
 
         .control-group { 
@@ -102,7 +103,7 @@
             align-items: center; 
             gap: 4px; 
             white-space: nowrap; 
-            flex-grow: 1; /* HACE QUE LOS BOTONES SE ESCALEN Y RELLENEN ESPACIOS */
+            flex-grow: 1; 
             justify-content: center;
             max-height: 28px;
         }
@@ -205,8 +206,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <script>
-        // Bloqueo estricto del Pull-To-Refresh y arrastre no deseado en todo el documento
-        document.body.addEventListener('touchmove', function(e) {
+        // --- BLOQUEO TOTAL DE PULL-TO-REFRESH Y ARRASTRE NATIVO ---
+        document.addEventListener('touchmove', function(e) {
+            // Cancela cualquier evento de desplazamiento por defecto del navegador en todo el DOM
             e.preventDefault();
         }, { passive: false });
 
@@ -226,7 +228,6 @@
         let prevPanPoint = null;
 
         function screenToWorld(sx, sy) { return { x: (sx - offsetX) / scale, y: (sy - offsetY) / scale }; }
-
         function resetSketchView() { scale = 1; offsetX = 0; offsetY = 0; drawSketch(); }
 
         // --- PESTAÑAS ---
@@ -465,7 +466,7 @@
             ctx.restore();
         }
 
-        // --- MANEJO DE ACCIONES ---
+        // --- MANEJO DE EVENTOS CANVAS ---
         function handleStart(screenX, screenY, isRightClick = false) {
             if (isRightClick) { isPanning = true; panStartX = screenX - offsetX; panStartY = screenY - offsetY; return; }
             const worldPos = screenToWorld(screenX, screenY);
@@ -569,7 +570,7 @@
         sketchCanvas.addEventListener('contextmenu', e => e.preventDefault());
 
         // --- TOUCH ---
-        function getDistance(t1, t2) { return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY); }
+        function getDistance(t1, t2) { return Math.hypot(t2.clientX - t1.clientX, t1.clientY - t2.clientY); }
         function getMidpoint(t1, t2) { return { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 }; }
 
         sketchCanvas.addEventListener('touchstart', e => {
