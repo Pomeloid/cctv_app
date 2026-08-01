@@ -10,7 +10,21 @@
     
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: #121218; color: white; user-select: none; overscroll-behavior-y: contain; }
+        
+        /* 🛑 FIX: overscroll-behavior-y evita que Android recargue al deslizar hacia abajo */
+        body { 
+            margin: 0; 
+            padding: 0; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            overflow: hidden; 
+            background: #121218; 
+            color: white; 
+            user-select: none; 
+            overscroll-behavior-y: contain;
+        }
         
         /* Navegación por Pestañas */
         #tab-bar { display: flex; background: #0f0f14; border-bottom: 2px solid #2a2a36; flex-shrink: 0; }
@@ -172,8 +186,21 @@
             maxZoom: 22, maxNativeZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: 'Google'
         }).addTo(map);
 
-        L.Control.geocoder({ defaultMarkGeocode: false, placeholder: '🔍 Buscar dirección...' })
-            .on('markgeocode', e => map.fitBounds(e.geocode.bbox)).addTo(map);
+        // 🚀 MEJORA EN EL BUSCADOR: Usamos el motor de búsquedas Photon (Komoot) mucho más preciso y rápido
+        L.Control.geocoder({
+            geocoder: L.Control.Geocoder.photon(),
+            defaultMarkGeocode: false,
+            placeholder: '🔍 Buscar ciudad, calle o lugar...'
+        }).on('markgeocode', function(e) {
+            const bbox = e.geocode.bbox;
+            const poly = L.polygon([
+                bbox.getSouthEast(),
+                bbox.getNorthEast(),
+                bbox.getNorthWest(),
+                bbox.getSouthWest()
+            ]);
+            map.fitBounds(poly.getBounds());
+        }).addTo(map);
 
         let camerasList = [];
         let isAddingCamera = false;
@@ -192,8 +219,8 @@
         function cancelAddCamera() {
             isAddingCamera = false;
             const addBtn = document.getElementById('addBtn');
-            addBtn.classList.remove('btn-adding');
             addBtn.innerHTML = '➕ Agregar Cámara';
+            if(addBtn) addBtn.classList.remove('btn-adding');
             if(map) map.getContainer().style.cursor = '';
         }
 
@@ -320,7 +347,6 @@
         }
         window.addEventListener('resize', resizeSketchCanvas);
 
-        // FUNCIÓN AUXILIAR PARA DIBUJAR MEDIDAS ADAPTATIVAS (VERTICAL/HORIZONTAL)
         function drawWallMeasure(x1, y1, x2, y2, color = '#007bff') {
             if (!pxPerMeter) return;
             const showMeasures = document.getElementById('showMeasures').checked;
@@ -339,13 +365,11 @@
             ctx.fillStyle = color;
 
             if (isVertical) {
-                // Posicionar a la izquierda o derecha desplazado de la línea
                 const offsetXVal = (dy > 0 ? 12 : -12) / scale;
                 ctx.textAlign = dy > 0 ? 'left' : 'right';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(`${meters}m`, midX + offsetXVal, midY);
             } else {
-                // Posicionar arriba o abajo desplazado
                 const offsetYVal = (dx > 0 ? -8 : 14) / scale;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -505,7 +529,7 @@
         }, { passive: false });
         sketchCanvas.addEventListener('contextmenu', e => e.preventDefault());
 
-        // --- EVENTOS TOUCH ---
+        // --- EVENTOS TOUCH (CON FIX DE PREVENCIÓN DE RECARGA EN ANDROID) ---
         function getDistance(t1, t2) { return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY); }
         function getMidpoint(t1, t2) { return { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 }; }
 
@@ -522,9 +546,12 @@
             if (tpCache.length === 1) {
                 handleStart(tpCache[0].clientX - rect.left, tpCache[0].clientY - rect.top);
             }
-        }, { passive: true });
+        }, { passive: false });
 
         sketchCanvas.addEventListener('touchmove', e => {
+            // 🛑 BLOQUEO DE RECARGA DE PÁGINA NATIVA DE ANDROID
+            if (e.cancelable) e.preventDefault();
+
             const rect = sketchCanvas.getBoundingClientRect();
             tpCache = Array.from(e.touches);
 
@@ -553,7 +580,7 @@
             if (tpCache.length === 1) {
                 handleMove(tpCache[0].clientX - rect.left, tpCache[0].clientY - rect.top);
             }
-        }, { passive: true });
+        }, { passive: false });
 
         sketchCanvas.addEventListener('touchend', e => {
             const rect = sketchCanvas.getBoundingClientRect();
@@ -562,7 +589,7 @@
             }
             tpCache = Array.from(e.touches);
             if (tpCache.length < 2) { prevDiff = -1; prevPanPoint = null; }
-        }, { passive: true });
+        }, { passive: false });
 
         function pointToLineDistance(px, py, x1, y1, x2, y2) { const A = px-x1, B = py-y1, C = x2-x1, D = y2-y1; const dot = A*C + B*D, len_sq = C*C + D*D; let param = -1; if (len_sq !== 0) param = dot / len_sq; let xx, yy; if (param < 0) { xx = x1; yy = y1; } else if (param > 1) { xx = x2; yy = y2; } else { xx = x1 + param*C; yy = y1 + param*D; } return Math.hypot(px-xx, py-yy); }
         function clearSketch() { if (confirm("¿Está seguro de limpiar todo el plano?")) { lines = []; sketchCameras = []; pxPerMeter = null; document.getElementById('scaleInfo').innerText = "Escala: Sin definir"; resetSketchView(); } }
